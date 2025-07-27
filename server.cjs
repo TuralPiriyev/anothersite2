@@ -82,6 +82,65 @@ app.get('/api/health', (req, res) => {
 // Portfolio routes (protected)
 app.use('/api/portfolios', authenticate, portfolioRoutes);
 
+// Database routes (protected)
+app.post('/api/databases/check', authenticate, async (req, res) => {
+  try {
+    const { databaseName } = req.body;
+    
+    if (!databaseName) {
+      return res.status(400).json({ error: 'Database name is required' });
+    }
+    
+    // Check if database exists in MongoDB
+    const existingDatabase = await mongoose.connection.db.admin().listDatabases();
+    const databaseExists = existingDatabase.databases.some(db => 
+      db.name.toLowerCase() === databaseName.toLowerCase()
+    );
+    
+    res.json({ exists: databaseExists });
+  } catch (error) {
+    console.error('Error checking database existence:', error);
+    res.status(500).json({ error: 'Failed to check database existence' });
+  }
+});
+
+app.post('/api/databases', authenticate, async (req, res) => {
+  try {
+    const { databaseName, schemaData } = req.body;
+    
+    if (!databaseName) {
+      return res.status(400).json({ error: 'Database name is required' });
+    }
+    
+    // Check if database already exists
+    const existingDatabase = await mongoose.connection.db.admin().listDatabases();
+    const databaseExists = existingDatabase.databases.some(db => 
+      db.name.toLowerCase() === databaseName.toLowerCase()
+    );
+    
+    if (databaseExists) {
+      return res.status(409).json({ error: 'Database already exists' });
+    }
+    
+    // Create database and save schema data
+    const db = mongoose.connection.useDb(databaseName);
+    const schemasCollection = db.collection('schemas');
+    
+    await schemasCollection.insertOne({
+      name: databaseName,
+      schemaData,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      createdBy: req.user.username
+    });
+    
+    res.json({ success: true, message: 'Database created successfully' });
+  } catch (error) {
+    console.error('Error creating database:', error);
+    res.status(500).json({ error: 'Failed to create database' });
+  }
+});
+
 // server.cjs
 // mövcud require-lərin altında
 // WorkspaceModel yoxdusa, biz Member modelindən istifadə edib,

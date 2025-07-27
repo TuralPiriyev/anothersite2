@@ -169,7 +169,7 @@ export interface DatabaseContextType {
   exportSchema: (format: string) => string;
   
   // Schema management
-  createNewSchema: (name: string) => void;
+  createNewSchema: (name: string) => Promise<void>;
   loadSchema: (schemaId: string) => void;
   saveSchema: () => void;
   
@@ -1010,22 +1010,12 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
     return exportSchema('mysql');
   }, [exportSchema]);
 
-  const createNewSchema = useCallback((name: string) => {
+  const createNewSchema = useCallback(async (name: string) => {
     // Validate schema name
     const trimmedName = name.trim();
     if (!trimmedName) {
       console.error('Schema name cannot be empty');
-      return;
-    }
-    
-    // Check for duplicate schema names (case-insensitive)
-    const existingSchema = schemas.find(s => 
-      s.name.toLowerCase() === trimmedName.toLowerCase()
-    );
-    
-    if (existingSchema) {
-      console.error(`Schema with name "${trimmedName}" already exists`);
-      throw new Error(`Schema with name "${trimmedName}" already exists`);
+      throw new Error('Schema name cannot be empty');
     }
     
     // Validate schema name format (alphanumeric, underscore, hyphen)
@@ -1033,6 +1023,36 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
     if (!nameRegex.test(trimmedName)) {
       console.error('Schema name can only contain letters, numbers, underscores, and hyphens');
       throw new Error('Schema name can only contain letters, numbers, underscores, and hyphens');
+    }
+    
+    // Check for duplicate schema names locally (case-insensitive)
+    const existingLocalSchema = schemas.find(s => 
+      s.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+    
+    if (existingLocalSchema) {
+      console.error(`Schema with name "${trimmedName}" already exists locally`);
+      throw new Error(`Schema with name "${trimmedName}" already exists`);
+    }
+    
+    // Check if database exists in MongoDB
+    try {
+      const { exists, error } = await mongoService.checkDatabaseExists(trimmedName);
+      
+      if (error) {
+        console.error('Error checking database existence:', error);
+        throw new Error(`Failed to check database: ${error}`);
+      }
+      
+      if (exists) {
+        console.error(`Database "${trimmedName}" already exists in MongoDB`);
+        throw new Error(`Database "${trimmedName}" already exists`);
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Failed to check database existence');
     }
     
     const newSchema: Schema = {

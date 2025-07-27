@@ -133,14 +133,14 @@ const PortfolioManager: React.FC = () => {
     }
   };
 
-  const handleCreateSchema = () => {
+  const handleCreateSchema = async () => {
     if (!newSchemaName.trim()) {
       setCreateError('Schema name cannot be empty');
       return;
     }
     
     try {
-      createNewSchema(newSchemaName.trim());
+      await createNewSchema(newSchemaName.trim());
       setNewSchemaName('');
       setShowCreateModal(false);
       setCreateError('');
