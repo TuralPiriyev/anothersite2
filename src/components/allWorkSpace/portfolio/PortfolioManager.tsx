@@ -3,10 +3,22 @@ import React, { useState, useEffect } from 'react';
 import { ArrowRight, Folder, Calendar, Eye, Trash2, Plus, Code, Upload, FileText, X } from 'lucide-react';
 import { useDatabase } from '../../../context/DatabaseContext';
 import { usePortfolio, Portfolio } from '../../../context/PortfolioContext';
-import { useWebSocket } from '../../../hooks/useWebSocket';
 import { mongoService } from '../../../services/mongoService';
 import { simpleWebSocketService } from '../../../services/simpleWebSocketService';
 import { SQLParser } from '../../../utils/sqlParser';
+
+interface ImportedColumn {
+  id: string;
+  name: string;
+  type: string;
+  nullable: boolean;
+  isPrimaryKey?: boolean;
+  isForeignKey?: boolean;
+  referencedTable?: string;
+  referencedColumn?: string;
+  isUnique?: boolean;
+  defaultValue?: string;
+}
 
 const PortfolioManager: React.FC = () => {
   const {
@@ -158,7 +170,7 @@ const PortfolioManager: React.FC = () => {
       
       // Parse SQL statements to create schema
       const statements = importSQL.split(';').filter(s => s.trim());
-      const newSchema = {
+      const newSchema: any = {
         id: crypto.randomUUID(),
         name: schemaName,
         tables: [] as any[],
@@ -182,7 +194,12 @@ const PortfolioManager: React.FC = () => {
       };
 
       // Track foreign key relationships for later processing
-      const foreignKeyRelationships: any[] = [];
+      const foreignKeyRelationships: Array<{
+        sourceTable: string;
+        sourceColumn: string;
+        targetTable: string;
+        targetColumn: string;
+      }> = [];
 
       // Parse CREATE TABLE statements
       statements.forEach(statement => {
@@ -234,8 +251,8 @@ const PortfolioManager: React.FC = () => {
       foreignKeyRelationships.forEach(fk => {
         const sourceTable = newSchema.tables.find(t => t.name === fk.sourceTable);
         const targetTable = newSchema.tables.find(t => t.name === fk.targetTable);
-        const sourceColumn = sourceTable?.columns.find(c => c.name === fk.sourceColumn);
-        const targetColumn = targetTable?.columns.find(c => c.name === fk.targetColumn);
+        const sourceColumn = sourceTable?.columns.find((c: ImportedColumn) => c.name === fk.sourceColumn);
+        const targetColumn = targetTable?.columns.find((c: ImportedColumn) => c.name === fk.targetColumn);
         
         if (sourceTable && targetTable && sourceColumn && targetColumn) {
           newSchema.relationships.push({
