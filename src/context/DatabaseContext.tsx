@@ -240,7 +240,63 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
   }, []);
   const importSchema = useCallback((schema: Schema) => {
     setCurrentSchema(schema);
-  }, []);
+    
+    // Recreate tables and relationships in SQL engine
+    if (sqlEngine) {
+      try {
+        // Clear existing tables
+        schema.tables.forEach(table => {
+          try {
+            sqlEngine.run(`DROP TABLE IF EXISTS ${table.name}`);
+          } catch (error) {
+            console.error(`Failed to drop table ${table.name}:`, error);
+          }
+        });
+        
+        // Create tables
+        schema.tables.forEach(table => {
+          const columnDefs = table.columns.map(col => {
+            let def = `${col.name} ${col.type}`;
+            if (!col.nullable) def += ' NOT NULL';
+            if (col.defaultValue) def += ` DEFAULT '${col.defaultValue}'`;
+            if (col.isPrimaryKey) def += ' PRIMARY KEY';
+            return def;
+          }).join(', ');
+          
+          const createSQL = `CREATE TABLE ${table.name} (${columnDefs})`;
+          try {
+            sqlEngine.run(createSQL);
+            console.log('Created table in SQL engine:', createSQL);
+          } catch (error) {
+            console.error(`Failed to create table ${table.name}:`, error);
+          }
+        });
+        
+        // Create foreign key constraints for existing relationships
+        schema.relationships.forEach(relationship => {
+          const sourceTable = schema.tables.find(t => t.id === relationship.sourceTableId);
+          const targetTable = schema.tables.find(t => t.id === relationship.targetTableId);
+          
+          if (sourceTable && targetTable) {
+            const sourceColumn = sourceTable.columns.find(c => c.id === relationship.sourceColumnId);
+            const targetColumn = targetTable.columns.find(c => c.id === relationship.targetColumnId);
+            
+            if (sourceColumn && targetColumn) {
+              const fkSQL = `ALTER TABLE ${sourceTable.name} ADD CONSTRAINT fk_${sourceTable.name}_${sourceColumn.name} FOREIGN KEY (${sourceColumn.name}) REFERENCES ${targetTable.name}(${targetColumn.name})`;
+              try {
+                sqlEngine.run(fkSQL);
+                console.log('Created foreign key constraint:', fkSQL);
+              } catch (error) {
+                console.error('Failed to create foreign key constraint:', error);
+              }
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Failed to import schema to SQL engine:', error);
+      }
+    }
+  }, [sqlEngine]);
   // Enhanced team collaboration functions with MongoDB integration
   const validateUsername = useCallback(async (username: string): Promise<boolean> => {
     return await mongoService.validateUsername(username);
@@ -694,15 +750,58 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
       relationships: [...prev.relationships, newRelationship],
       updatedAt: new Date(),
     }));
-  }, []);
+
+    // Create foreign key constraint in SQL engine
+    if (sqlEngine) {
+      try {
+        // Find the source and target tables
+        const sourceTable = currentSchema.tables.find(t => t.id === relationship.sourceTableId);
+        const targetTable = currentSchema.tables.find(t => t.id === relationship.targetTableId);
+        
+        if (sourceTable && targetTable) {
+          // Find the source and target columns
+          const sourceColumn = sourceTable.columns.find(c => c.id === relationship.sourceColumnId);
+          const targetColumn = targetTable.columns.find(c => c.id === relationship.targetColumnId);
+          
+          if (sourceColumn && targetColumn) {
+            // Create the foreign key constraint
+            const fkSQL = `ALTER TABLE ${sourceTable.name} ADD CONSTRAINT fk_${sourceTable.name}_${sourceColumn.name} FOREIGN KEY (${sourceColumn.name}) REFERENCES ${targetTable.name}(${targetColumn.name})`;
+            sqlEngine.run(fkSQL);
+            console.log('Created foreign key constraint:', fkSQL);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to create foreign key constraint in SQL engine:', error);
+      }
+    }
+  }, [currentSchema.tables, sqlEngine]);
 
   const removeRelationship = useCallback((relationshipId: string) => {
+    // Find the relationship before removing it
+    const relationship = currentSchema.relationships.find(r => r.id === relationshipId);
+    
     setCurrentSchema(prev => ({
       ...prev,
       relationships: prev.relationships.filter(rel => rel.id !== relationshipId),
       updatedAt: new Date(),
     }));
-  }, []);
+
+    // Remove foreign key constraint from SQL engine
+    if (sqlEngine && relationship) {
+      try {
+        const sourceTable = currentSchema.tables.find(t => t.id === relationship.sourceTableId);
+        const sourceColumn = sourceTable?.columns.find(c => c.id === relationship.sourceColumnId);
+        
+        if (sourceTable && sourceColumn) {
+          const dropFkSQL = `ALTER TABLE ${sourceTable.name} DROP CONSTRAINT fk_${sourceTable.name}_${sourceColumn.name}`;
+          sqlEngine.run(dropFkSQL);
+          console.log('Dropped foreign key constraint:', dropFkSQL);
+        }
+      } catch (error) {
+        console.error('Failed to drop foreign key constraint from SQL engine:', error);
+      }
+    }
+  }, [currentSchema.tables, currentSchema.relationships, sqlEngine]);
 
   const addIndex = useCallback((index: Omit<Index, 'id'>) => {
     const newIndex: Index = {
