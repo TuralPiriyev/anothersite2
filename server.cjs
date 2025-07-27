@@ -32,7 +32,7 @@ const Invitation      = require('./src/models/Invitation.cjs');
 const Member          = require('./src/models/Member.cjs');
 
 // Config
-const PORT           = process.env.SERVER_PORT    || 5000;
+const PORT = Number(process.env.PORT) || 5000;
 const MONGO_URL      = process.env.MONGO_URL;
 const FRONTEND_ORIGIN= process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
 const SMTP_PORT      = Number(process.env.SMTP_PORT);
@@ -1036,4 +1036,6 @@ app.use((err, req, res, next) => {
 // }
 
 // Start
-app.listen(PORT,'0.0.0.0', () => console.log(`✅ Server running at http://localhost:${PORT}`));
+app.listen(PORT, '0.0.0.0', () => {
+   console.log(`✅ Server running on port ${PORT} (env: ${process.env.NODE_ENV})`);
+ });
