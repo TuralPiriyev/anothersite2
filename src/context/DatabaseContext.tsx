@@ -1011,9 +1011,33 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
   }, [exportSchema]);
 
   const createNewSchema = useCallback((name: string) => {
+    // Validate schema name
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      console.error('Schema name cannot be empty');
+      return;
+    }
+    
+    // Check for duplicate schema names (case-insensitive)
+    const existingSchema = schemas.find(s => 
+      s.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+    
+    if (existingSchema) {
+      console.error(`Schema with name "${trimmedName}" already exists`);
+      throw new Error(`Schema with name "${trimmedName}" already exists`);
+    }
+    
+    // Validate schema name format (alphanumeric, underscore, hyphen)
+    const nameRegex = /^[a-zA-Z0-9_-]+$/;
+    if (!nameRegex.test(trimmedName)) {
+      console.error('Schema name can only contain letters, numbers, underscores, and hyphens');
+      throw new Error('Schema name can only contain letters, numbers, underscores, and hyphens');
+    }
+    
     const newSchema: Schema = {
       id: uuidv4(),
-      name,
+      name: trimmedName,
       tables: [],
       relationships: [],
       indexes: [],
@@ -1039,7 +1063,7 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
     
     setCurrentSchema(newSchema);
     setSchemas(prev => [...prev, newSchema]);
-  }, []);
+  }, [schemas]);
 
   const loadSchema = useCallback((schemaId: string) => {
     const schema = schemas.find(s => s.id === schemaId);

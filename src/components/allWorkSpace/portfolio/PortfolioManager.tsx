@@ -26,6 +26,7 @@ const PortfolioManager: React.FC = () => {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newSchemaName, setNewSchemaName] = useState('');
+  const [createError, setCreateError] = useState('');
   const [sharedSchemas, setSharedSchemas] = useState<Portfolio[]>([]);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importSQL, setImportSQL] = useState('');
@@ -121,16 +122,24 @@ const PortfolioManager: React.FC = () => {
   };
 
   const handleCreateSchema = () => {
-    if (!newSchemaName.trim()) return;
-    createNewSchema(newSchemaName.trim());
-    setNewSchemaName('');
-    setShowCreateModal(false);
+    if (!newSchemaName.trim()) {
+      setCreateError('Schema name cannot be empty');
+      return;
+    }
+    
+    try {
+      createNewSchema(newSchemaName.trim());
+      setNewSchemaName('');
+      setShowCreateModal(false);
+      setCreateError('');
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : 'Failed to create schema');
+    }
   };
 
   const handleImportSQL = () => {
     if (!importSQL.trim()) {
       setImportError('Please enter SQL code to import');
-      
       return;
     }
 
@@ -142,13 +151,16 @@ const PortfolioManager: React.FC = () => {
         return;
       }
 
+      // Generate unique schema name if not provided
+      const schemaName = newSchemaName || `Imported_Schema_${Date.now()}`;
+      
       // Parse SQL statements to create schema
       const statements = importSQL.split(';').filter(s => s.trim());
       const newSchema = {
         id: crypto.randomUUID(),
-        name: newSchemaName || 'Imported Schema',
+        name: schemaName,
         tables: [] as any[],
-        relationships: [],
+        relationships: [] as any[],
         indexes: [],
         constraints: [],
         users: [],
@@ -166,6 +178,9 @@ const PortfolioManager: React.FC = () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       };
+
+      // Track foreign key relationships for later processing
+      const foreignKeyRelationships: any[] = [];
 
       // Parse CREATE TABLE statements
       statements.forEach(statement => {
@@ -195,9 +210,40 @@ const PortfolioManager: React.FC = () => {
               data: []
             };
             newSchema.tables.push(table);
+            
+            // Store foreign key relationships for later processing
+            parsed.columns.forEach(col => {
+              if (col.references) {
+                foreignKeyRelationships.push({
+                  sourceTable: parsed.tableName,
+                  sourceColumn: col.name,
+                  targetTable: col.references.table,
+                  targetColumn: col.references.column
+                });
+              }
+            });
           }
         } catch (error) {
           console.warn('Failed to parse statement:', statement, error);
+        }
+      });
+
+      // Process foreign key relationships after all tables are created
+      foreignKeyRelationships.forEach(fk => {
+        const sourceTable = newSchema.tables.find(t => t.name === fk.sourceTable);
+        const targetTable = newSchema.tables.find(t => t.name === fk.targetTable);
+        const sourceColumn = sourceTable?.columns.find(c => c.name === fk.sourceColumn);
+        const targetColumn = targetTable?.columns.find(c => c.name === fk.targetColumn);
+        
+        if (sourceTable && targetTable && sourceColumn && targetColumn) {
+          newSchema.relationships.push({
+            id: crypto.randomUUID(),
+            sourceTableId: sourceTable.id,
+            sourceColumnId: sourceColumn.id,
+            targetTableId: targetTable.id,
+            targetColumnId: targetColumn.id,
+            cardinality: '1:N'
+          });
         }
       });
 
@@ -414,6 +460,11 @@ const PortfolioManager: React.FC = () => {
               onKeyPress={(e) => e.key === 'Enter' && handleCreateSchema()}
               className="w-full px-3 py-2 border rounded-lg mb-4"
             />
+            {createError && (
+              <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-sm text-red-800 dark:text-red-200">{createError}</p>
+              </div>
+            )}
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => {
