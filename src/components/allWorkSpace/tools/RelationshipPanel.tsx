@@ -28,7 +28,17 @@ const RelationshipPanel: React.FC = () => {
       const sourceColumn = sourceTable?.columns.find(c => c.id === rel.sourceColumnId);
       const targetColumn = targetTable?.columns.find(c => c.id === rel.targetColumnId);
 
-
+      console.log('Displaying relationship:', {
+        rel,
+        sourceTable: sourceTable?.name,
+        targetTable: targetTable?.name,
+        sourceColumn: sourceColumn?.name,
+        targetColumn: targetColumn?.name,
+        sourceTableId: rel.sourceTableId,
+        targetTableId: rel.targetTableId,
+        sourceColumnId: rel.sourceColumnId,
+        targetColumnId: rel.targetColumnId
+      });
 
       return {
         id: rel.id,

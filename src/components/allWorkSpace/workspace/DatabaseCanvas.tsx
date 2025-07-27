@@ -123,6 +123,26 @@ const DatabaseCanvasInner: React.FC<DatabaseCanvasProps> = ({
   const onConnect = useCallback(
     (params: Connection) => {
       if (params.source && params.target && params.sourceHandle && params.targetHandle) {
+        console.log('Creating relationship with params:', params);
+        
+        // Validate that the connection is valid
+        const sourceTable = currentSchema.tables.find(t => t.id === params.source);
+        const targetTable = currentSchema.tables.find(t => t.id === params.target);
+        const sourceColumn = sourceTable?.columns.find(c => c.id === params.sourceHandle);
+        const targetColumn = targetTable?.columns.find(c => c.id === params.targetHandle);
+        
+        console.log('Resolved connection:', {
+          sourceTable: sourceTable?.name,
+          targetTable: targetTable?.name,
+          sourceColumn: sourceColumn?.name,
+          targetColumn: targetColumn?.name
+        });
+        
+        if (!sourceTable || !targetTable || !sourceColumn || !targetColumn) {
+          console.error('Invalid connection: Missing table or column');
+          return;
+        }
+        
         const newRelationship = {
           sourceTableId: params.source,
           sourceColumnId: params.sourceHandle,
@@ -145,7 +165,7 @@ const DatabaseCanvasInner: React.FC<DatabaseCanvasProps> = ({
         }
       }
     },
-    [addRelationship]
+    [addRelationship, currentSchema.tables]
   );
 
   const onNodeDragStop = useCallback(

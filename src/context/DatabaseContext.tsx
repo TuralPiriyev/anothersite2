@@ -740,6 +740,37 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
   }, [currentSchema.tables, sqlEngine]);
 
   const addRelationship = useCallback((relationship: Omit<Relationship, 'id'>) => {
+    // Validate that the relationship is valid before creating it
+    const sourceTable = currentSchema.tables.find(t => t.id === relationship.sourceTableId);
+    const targetTable = currentSchema.tables.find(t => t.id === relationship.targetTableId);
+    const sourceColumn = sourceTable?.columns.find(c => c.id === relationship.sourceColumnId);
+    const targetColumn = targetTable?.columns.find(c => c.id === relationship.targetColumnId);
+    
+    // Check if relationship is valid
+    if (!sourceTable || !targetTable || !sourceColumn || !targetColumn) {
+      console.error('Invalid relationship: Missing table or column', {
+        sourceTable: sourceTable?.name,
+        targetTable: targetTable?.name,
+        sourceColumn: sourceColumn?.name,
+        targetColumn: targetColumn?.name,
+        relationship
+      });
+      return;
+    }
+    
+    // Check if relationship already exists
+    const existingRelationship = currentSchema.relationships.find(rel => 
+      rel.sourceTableId === relationship.sourceTableId && 
+      rel.sourceColumnId === relationship.sourceColumnId &&
+      rel.targetTableId === relationship.targetTableId &&
+      rel.targetColumnId === relationship.targetColumnId
+    );
+    
+    if (existingRelationship) {
+      console.warn('Relationship already exists:', existingRelationship);
+      return;
+    }
+    
     const newRelationship: Relationship = {
       ...relationship,
       id: uuidv4(),
@@ -754,27 +785,15 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
     // Create foreign key constraint in SQL engine
     if (sqlEngine) {
       try {
-        // Find the source and target tables
-        const sourceTable = currentSchema.tables.find(t => t.id === relationship.sourceTableId);
-        const targetTable = currentSchema.tables.find(t => t.id === relationship.targetTableId);
-        
-        if (sourceTable && targetTable) {
-          // Find the source and target columns
-          const sourceColumn = sourceTable.columns.find(c => c.id === relationship.sourceColumnId);
-          const targetColumn = targetTable.columns.find(c => c.id === relationship.targetColumnId);
-          
-          if (sourceColumn && targetColumn) {
-            // Create the foreign key constraint
-            const fkSQL = `ALTER TABLE ${sourceTable.name} ADD CONSTRAINT fk_${sourceTable.name}_${sourceColumn.name} FOREIGN KEY (${sourceColumn.name}) REFERENCES ${targetTable.name}(${targetColumn.name})`;
-            sqlEngine.run(fkSQL);
-            console.log('Created foreign key constraint:', fkSQL);
-          }
-        }
+        // Create the foreign key constraint
+        const fkSQL = `ALTER TABLE ${sourceTable.name} ADD CONSTRAINT fk_${sourceTable.name}_${sourceColumn.name} FOREIGN KEY (${sourceColumn.name}) REFERENCES ${targetTable.name}(${targetColumn.name})`;
+        sqlEngine.run(fkSQL);
+        console.log('Created foreign key constraint:', fkSQL);
       } catch (error) {
         console.error('Failed to create foreign key constraint in SQL engine:', error);
       }
     }
-  }, [currentSchema.tables, sqlEngine]);
+  }, [currentSchema.tables, currentSchema.relationships, sqlEngine]);
 
   const removeRelationship = useCallback((relationshipId: string) => {
     // Find the relationship before removing it
@@ -1130,8 +1149,27 @@ function generateMySQLScript(tables: Table[], relationships: Relationship[], ind
     const sourceColumn = sourceTable?.columns.find(c => c.id === rel.sourceColumnId);
     const targetColumn = targetTable?.columns.find(c => c.id === rel.targetColumnId);
     
+    console.log('Exporting relationship:', {
+      rel,
+      sourceTable: sourceTable?.name,
+      targetTable: targetTable?.name,
+      sourceColumn: sourceColumn?.name,
+      targetColumn: targetColumn?.name,
+      sourceTableId: rel.sourceTableId,
+      targetTableId: rel.targetTableId,
+      sourceColumnId: rel.sourceColumnId,
+      targetColumnId: rel.targetColumnId
+    });
+    
     if (sourceTable && targetTable && sourceColumn && targetColumn) {
-      script += `ALTER TABLE \`${sourceTable.name}\` ADD FOREIGN KEY (\`${sourceColumn.name}\`) REFERENCES \`${targetTable.name}\`(\`${targetColumn.name}\`);\n`;
+      script += `ALTER TABLE \`${sourceTable.name}\` ADD CONSTRAINT fk_${sourceTable.name}_${sourceColumn.name} FOREIGN KEY (\`${sourceColumn.name}\`) REFERENCES \`${targetTable.name}\`(\`${targetColumn.name}\`);\n`;
+    } else {
+      console.error('Failed to resolve relationship:', {
+        sourceTable: sourceTable?.name || 'NOT FOUND',
+        targetTable: targetTable?.name || 'NOT FOUND',
+        sourceColumn: sourceColumn?.name || 'NOT FOUND',
+        targetColumn: targetColumn?.name || 'NOT FOUND'
+      });
     }
   });
   
@@ -1178,8 +1216,23 @@ function generatePostgreSQLScript(tables: Table[], relationships: Relationship[]
     const sourceColumn = sourceTable?.columns.find(c => c.id === rel.sourceColumnId);
     const targetColumn = targetTable?.columns.find(c => c.id === rel.targetColumnId);
     
+    console.log('Exporting PostgreSQL relationship:', {
+      rel,
+      sourceTable: sourceTable?.name,
+      targetTable: targetTable?.name,
+      sourceColumn: sourceColumn?.name,
+      targetColumn: targetColumn?.name
+    });
+    
     if (sourceTable && targetTable && sourceColumn && targetColumn) {
       script += `ALTER TABLE "${sourceTable.name}" ADD CONSTRAINT fk_${sourceTable.name}_${sourceColumn.name} FOREIGN KEY ("${sourceColumn.name}") REFERENCES "${targetTable.name}"("${targetColumn.name}");\n`;
+    } else {
+      console.error('Failed to resolve PostgreSQL relationship:', {
+        sourceTable: sourceTable?.name || 'NOT FOUND',
+        targetTable: targetTable?.name || 'NOT FOUND',
+        sourceColumn: sourceColumn?.name || 'NOT FOUND',
+        targetColumn: targetColumn?.name || 'NOT FOUND'
+      });
     }
   });
   
