@@ -555,7 +555,7 @@ const EnhancedTableBuilder: React.FC = () => {
                     <option value="">Select reference column</option>
                     {getAvailableColumns(selectedReferenceTable).map(column => (
                       <option key={column.id} value={column.name}>
-                        {column.name} ({column.type})
+                        {column.name} ({column.type}) {column.isPrimaryKey ? '(Primary Key)' : ''}
                       </option>
                     ))}
                   </select>
@@ -578,11 +578,16 @@ const EnhancedTableBuilder: React.FC = () => {
               <button
                 onClick={() => {
                   if (selectedReferenceTable) {
+                    // Get the first primary key column from the referenced table as default
+                    const refTable = currentSchema.tables.find(t => t.name === selectedReferenceTable);
+                    const primaryKeyColumn = refTable?.columns.find(col => col.isPrimaryKey);
+                    const defaultReferencedColumn = primaryKeyColumn?.name || '';
+                    
                     const newFK: ForeignKeyDefinition = {
                       id: uuidv4(),
                       columnName: selectedColumn,
                       referencedTable: selectedReferenceTable,
-                      referencedColumn: '',
+                      referencedColumn: defaultReferencedColumn,
                       constraintName: `fk_${table.name}_${selectedColumn}`
                     };
                     setTable(prev => ({
