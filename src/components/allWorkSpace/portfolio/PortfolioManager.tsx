@@ -133,7 +133,9 @@ const PortfolioManager: React.FC = () => {
       setShowCreateModal(false);
       setCreateError('');
     } catch (error) {
-      setCreateError(error instanceof Error ? error.message : 'Failed to create schema');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create schema';
+      setCreateError(errorMessage);
+      console.error('Schema creation error:', errorMessage);
     }
   };
 

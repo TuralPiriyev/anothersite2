@@ -210,21 +210,41 @@ const EnhancedTableBuilder: React.FC = () => {
     }
 
     // Create relationships for foreign keys with proper SQL generation
+    const relationshipsToAdd: any[] = [];
+    
     table.foreignKeys.forEach(fk => {
       const sourceColumn = tableData.columns.find(col => col.name === fk.columnName);
       const targetTable = currentSchema.tables.find(t => t.name === fk.referencedTable);
       const targetColumn = targetTable?.columns.find(col => col.name === fk.referencedColumn);
 
       if (sourceColumn && targetTable && targetColumn) {
-        // Add relationship to database context
-        addRelationship({
-          sourceTableId: editingTable?.id || tableData.id,
+        console.log('Creating relationship:', {
+          sourceTable: tableData.name,
+          sourceColumn: sourceColumn.name,
+          targetTable: targetTable.name,
+          targetColumn: targetColumn.name
+        });
+        
+        relationshipsToAdd.push({
+          sourceTableId: tableData.id,
           sourceColumnId: sourceColumn.id,
           targetTableId: targetTable.id,
           targetColumnId: targetColumn.id,
           cardinality: '1:N'
         });
+      } else {
+        console.error('Failed to create relationship:', {
+          sourceColumn: sourceColumn?.name || 'NOT FOUND',
+          targetTable: targetTable?.name || 'NOT FOUND',
+          targetColumn: targetColumn?.name || 'NOT FOUND',
+          fk
+        });
       }
+    });
+
+    // Add all relationships after table is created
+    relationshipsToAdd.forEach(relationship => {
+      addRelationship(relationship);
     });
 
     resetForm();

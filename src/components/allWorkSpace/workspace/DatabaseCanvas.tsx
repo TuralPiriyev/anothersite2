@@ -50,20 +50,35 @@ const DatabaseCanvasInner: React.FC<DatabaseCanvasProps> = ({
 
   // Convert database relationships to React Flow edges
   const initialEdges: Edge[] = useMemo(() => {
-    return currentSchema.relationships.map(relationship => ({
-      id: relationship.id,
-      source: relationship.sourceTableId,
-      target: relationship.targetTableId,
-      sourceHandle: relationship.sourceColumnId,
-      targetHandle: relationship.targetColumnId,
-      type: 'smoothstep',
-      animated: true,
-      style: { stroke: '#3B82F6', strokeWidth: 2 },
-      label: relationship.cardinality,
-      labelBgStyle: { fill: '#ffffff', fillOpacity: 0.8 },
-      labelStyle: { fontSize: 12, fontWeight: 600 },
-    }));
-  }, [currentSchema.relationships]);
+    return currentSchema.relationships.map(relationship => {
+      const sourceTable = currentSchema.tables.find(t => t.id === relationship.sourceTableId);
+      const targetTable = currentSchema.tables.find(t => t.id === relationship.targetTableId);
+      const sourceColumn = sourceTable?.columns.find(c => c.id === relationship.sourceColumnId);
+      const targetColumn = targetTable?.columns.find(c => c.id === relationship.targetColumnId);
+      
+      console.log('Creating edge for relationship:', {
+        relationship,
+        sourceTable: sourceTable?.name,
+        targetTable: targetTable?.name,
+        sourceColumn: sourceColumn?.name,
+        targetColumn: targetColumn?.name
+      });
+      
+      return {
+        id: relationship.id,
+        source: relationship.sourceTableId,
+        target: relationship.targetTableId,
+        sourceHandle: relationship.sourceColumnId,
+        targetHandle: relationship.targetColumnId,
+        type: 'smoothstep',
+        animated: true,
+        style: { stroke: '#3B82F6', strokeWidth: 2 },
+        label: `${sourceColumn?.name || '?'} → ${targetColumn?.name || '?'}`,
+        labelBgStyle: { fill: '#ffffff', fillOpacity: 0.8 },
+        labelStyle: { fontSize: 12, fontWeight: 600 },
+      };
+    });
+  }, [currentSchema.relationships, currentSchema.tables]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -82,21 +97,28 @@ const DatabaseCanvasInner: React.FC<DatabaseCanvasProps> = ({
 
   // Update edges when relationships change
   useEffect(() => {
-    const newEdges = currentSchema.relationships.map(relationship => ({
-      id: relationship.id,
-      source: relationship.sourceTableId,
-      target: relationship.targetTableId,
-      sourceHandle: relationship.sourceColumnId,
-      targetHandle: relationship.targetColumnId,
-      type: 'smoothstep',
-      animated: true,
-      style: { stroke: '#3B82F6', strokeWidth: 2 },
-      label: relationship.cardinality,
-      labelBgStyle: { fill: '#ffffff', fillOpacity: 0.8 },
-      labelStyle: { fontSize: 12, fontWeight: 600 },
-    }));
+    const newEdges = currentSchema.relationships.map(relationship => {
+      const sourceTable = currentSchema.tables.find(t => t.id === relationship.sourceTableId);
+      const targetTable = currentSchema.tables.find(t => t.id === relationship.targetTableId);
+      const sourceColumn = sourceTable?.columns.find(c => c.id === relationship.sourceColumnId);
+      const targetColumn = targetTable?.columns.find(c => c.id === relationship.targetColumnId);
+      
+      return {
+        id: relationship.id,
+        source: relationship.sourceTableId,
+        target: relationship.targetTableId,
+        sourceHandle: relationship.sourceColumnId,
+        targetHandle: relationship.targetColumnId,
+        type: 'smoothstep',
+        animated: true,
+        style: { stroke: '#3B82F6', strokeWidth: 2 },
+        label: `${sourceColumn?.name || '?'} → ${targetColumn?.name || '?'}`,
+        labelBgStyle: { fill: '#ffffff', fillOpacity: 0.8 },
+        labelStyle: { fontSize: 12, fontWeight: 600 },
+      };
+    });
     setEdges(newEdges);
-  }, [currentSchema.relationships, setEdges]);
+  }, [currentSchema.relationships, currentSchema.tables, setEdges]);
 
   // Monitor zoom changes
   useEffect(() => {
