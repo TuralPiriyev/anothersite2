@@ -28,6 +28,17 @@ const RelationshipPanel: React.FC = () => {
       const sourceColumn = sourceTable?.columns.find(c => c.id === rel.sourceColumnId);
       const targetColumn = targetTable?.columns.find(c => c.id === rel.targetColumnId);
 
+      // Debug logging to help identify issues
+      console.log('Relationship debug:', {
+        rel,
+        sourceTable: sourceTable?.name,
+        targetTable: targetTable?.name,
+        sourceColumn: sourceColumn?.name,
+        targetColumn: targetColumn?.name,
+        sourceTableColumns: sourceTable?.columns.map(c => ({ id: c.id, name: c.name })),
+        targetTableColumns: targetTable?.columns.map(c => ({ id: c.id, name: c.name }))
+      });
+
       return {
         id: rel.id,
         constraintName: `fk_${sourceTable?.name}_${sourceColumn?.name}`,
