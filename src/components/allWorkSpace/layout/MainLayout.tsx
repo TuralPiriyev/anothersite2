@@ -13,6 +13,10 @@ const MainLayout: React.FC = () => {
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(320); // Default width
+  const [rightPanelWidth, setRightPanelWidth] = useState(320); // Default width
+  const [isResizingLeft, setIsResizingLeft] = useState(false);
+  const [isResizingRight, setIsResizingRight] = useState(false);
   const [collaborativeCursors, setCollaborativeCursors] = useState<CursorData[]>([]);
   const [isCollaborationConnected, setIsCollaborationConnected] = useState(false);
 
@@ -78,6 +82,51 @@ const MainLayout: React.FC = () => {
   const toggleRightPanel = () => setRightPanelOpen(p => !p);
   const toggleLeftCollapse = () => setLeftPanelCollapsed(p => !p);
   const toggleRightCollapse = () => setRightPanelCollapsed(p => !p);
+
+  // Resize handlers
+  const handleLeftResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingLeft(true);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  const handleRightResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingRight(true);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (isResizingLeft) {
+      const newWidth = Math.max(200, Math.min(600, e.clientX));
+      setLeftPanelWidth(newWidth);
+    }
+    if (isResizingRight) {
+      const newWidth = Math.max(200, Math.min(600, window.innerWidth - e.clientX));
+      setRightPanelWidth(newWidth);
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsResizingLeft(false);
+    setIsResizingRight(false);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  };
+
+  // Add global mouse event listeners
+  useEffect(() => {
+    if (isResizingLeft || isResizingRight) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isResizingLeft, isResizingRight]);
 
   // Cursor move broadcast - now handled via collaboration events
   const handleCursorMove = (pos: { x: number; y: number; tableId?: string; columnId?: string }) => {
@@ -148,12 +197,19 @@ const MainLayout: React.FC = () => {
         </div>
 
         {/* Left Panel - Advanced Tools */}
-        <div className={`
-          fixed inset-y-0 left-0 z-40 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transform transition-all duration-300 ease-in-out shadow-xl
-          lg:relative lg:translate-x-0 lg:shadow-none
-          ${leftPanelOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-          ${leftPanelCollapsed ? 'lg:w-12' : 'w-80 lg:w-1/5 lg:min-w-80'}
-        `}>
+        <div 
+          className={`
+            fixed inset-y-0 left-0 z-40 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transform transition-all duration-300 ease-in-out shadow-xl
+            lg:relative lg:translate-x-0 lg:shadow-none
+            ${leftPanelOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+            ${leftPanelCollapsed ? 'lg:w-12' : ''}
+          `}
+          style={{
+            width: leftPanelCollapsed ? '48px' : `${leftPanelWidth}px`,
+            minWidth: leftPanelCollapsed ? '48px' : '200px',
+            maxWidth: leftPanelCollapsed ? '48px' : '600px'
+          }}
+        >
           {/* Collapse Toggle Button */}
           <div className="hidden lg:block absolute top-4 -right-3 z-50">
             <button
@@ -181,20 +237,42 @@ const MainLayout: React.FC = () => {
           
           {/* Tools Panel Content */}
           <ToolsPanel collapsed={leftPanelCollapsed} />
+          
+          {/* Resize Handle */}
+          {!leftPanelCollapsed && (
+            <div
+              className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-sky-500 hover:opacity-100 opacity-0 transition-opacity duration-200"
+              onMouseDown={handleLeftResizeStart}
+              title="Drag to resize panel"
+            />
+          )}
         </div>
 
         {/* Center Panel - Workspace */}
-        <div className="flex-1 lg:w-3/5">
+        <div 
+          className="flex-1"
+          style={{
+            marginLeft: leftPanelCollapsed ? '48px' : `${leftPanelWidth}px`,
+            marginRight: rightPanelCollapsed ? '48px' : `${rightPanelWidth}px`
+          }}
+        >
           <WorkspacePanel />
         </div>
 
         {/* Right Panel - Portfolio & Chat */}
-        <div className={`
-          fixed inset-y-0 right-0 z-40 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 transform transition-all duration-300 ease-in-out shadow-xl
-          lg:relative lg:translate-x-0 lg:shadow-none
-          ${rightPanelOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
-          ${rightPanelCollapsed ? 'lg:w-12' : 'w-80 lg:w-1/5 lg:min-w-80'}
-        `}>
+        <div 
+          className={`
+            fixed inset-y-0 right-0 z-40 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 transform transition-all duration-300 ease-in-out shadow-xl
+            lg:relative lg:translate-x-0 lg:shadow-none
+            ${rightPanelOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
+            ${rightPanelCollapsed ? 'lg:w-12' : ''}
+          `}
+          style={{
+            width: rightPanelCollapsed ? '48px' : `${rightPanelWidth}px`,
+            minWidth: rightPanelCollapsed ? '48px' : '200px',
+            maxWidth: rightPanelCollapsed ? '48px' : '600px'
+          }}
+        >
           {/* Collapse Toggle Button */}
           <div className="hidden lg:block absolute top-4 -left-3 z-50">
             <button
@@ -220,6 +298,15 @@ const MainLayout: React.FC = () => {
             </button>
           </div>
           <PortfolioPanel collapsed={rightPanelCollapsed} />
+          
+          {/* Resize Handle */}
+          {!rightPanelCollapsed && (
+            <div
+              className="absolute top-0 left-0 w-1 h-full cursor-col-resize hover:bg-sky-500 hover:opacity-100 opacity-0 transition-opacity duration-200"
+              onMouseDown={handleRightResizeStart}
+              title="Drag to resize panel"
+            />
+          )}
         </div>
 
         {/* Mobile Overlays */}
