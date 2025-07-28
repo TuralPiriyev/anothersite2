@@ -9,4 +9,7 @@ const portfolioSchema = new Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+// Add unique compound index to prevent duplicate names per user
+portfolioSchema.index({ user: 1, name: 1 }, { unique: true });
+
 module.exports = mongoose.model('Portfolio', portfolioSchema);

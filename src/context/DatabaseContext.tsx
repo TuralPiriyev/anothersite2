@@ -893,6 +893,12 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
   }, [exportSchema]);
 
   const createNewSchema = useCallback((name: string) => {
+    // Check if a schema with this name already exists
+    const existingSchema = schemas.find(schema => schema.name === name);
+    if (existingSchema) {
+      throw new Error('Bu adlı bir database artıq yaratmısınız');
+    }
+
     const newSchema: Schema = {
       id: uuidv4(),
       name,
@@ -921,7 +927,7 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({ children }) 
     
     setCurrentSchema(newSchema);
     setSchemas(prev => [...prev, newSchema]);
-  }, []);
+  }, [schemas]);
 
   const loadSchema = useCallback((schemaId: string) => {
     const schema = schemas.find(s => s.id === schemaId);

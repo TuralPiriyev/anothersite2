@@ -19,6 +19,15 @@ router.post('/', async (req, res) => {
     res.status(201).json(p);
   } catch (err) {
     console.error('❌ Portfolio save error:', err);
+    
+    // Check if it's a duplicate key error
+    if (err.code === 11000) {
+      return res.status(400).json({ 
+        message: 'Bu adlı bir portfolio artıq yaratmısınız',
+        error: 'DUPLICATE_NAME'
+      });
+    }
+    
     res.status(500).json({ message: 'Portfolio save error' });
   }
 });

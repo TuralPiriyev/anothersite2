@@ -11,6 +11,7 @@ import { SQLParser } from '../../../utils/sqlParser';
 const PortfolioManager: React.FC = () => {
   const {
     currentSchema,
+    schemas,
     createNewSchema,
     saveSchema,
     //generateSQL,
@@ -30,6 +31,8 @@ const PortfolioManager: React.FC = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importSQL, setImportSQL] = useState('');
   const [importError, setImportError] = useState('');
+  const [createSchemaError, setCreateSchemaError] = useState('');
+  const [portfolioSaveError, setPortfolioSaveError] = useState('');
   const [portfolioConnectionId, setPortfolioConnectionId] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   
@@ -122,19 +125,32 @@ const PortfolioManager: React.FC = () => {
 
   const handleCreateSchema = () => {
     if (!newSchemaName.trim()) return;
-    createNewSchema(newSchemaName.trim());
-    setNewSchemaName('');
-    setShowCreateModal(false);
+    
+    try {
+      createNewSchema(newSchemaName.trim());
+      setNewSchemaName('');
+      setShowCreateModal(false);
+      setCreateSchemaError(''); // Clear any previous errors
+    } catch (error: any) {
+      setCreateSchemaError(error.message || 'Schema yaratma xətası');
+    }
   };
 
   const handleImportSQL = () => {
     if (!importSQL.trim()) {
       setImportError('Please enter SQL code to import');
-      
       return;
     }
 
     try {
+      // Check if a schema with this name already exists
+      const schemaName = newSchemaName || 'Imported Schema';
+      const existingSchema = schemas.find(schema => schema.name === schemaName);
+      if (existingSchema) {
+        setImportError('Bu adlı bir database artıq yaratmısınız');
+        return;
+      }
+
       // Validate SQL first
       const validation = SQLParser.validateSQL(importSQL);
       if (!validation.isValid) {
@@ -146,7 +162,7 @@ const PortfolioManager: React.FC = () => {
       const statements = importSQL.split(';').filter(s => s.trim());
       const newSchema = {
         id: crypto.randomUUID(),
-        name: newSchemaName || 'Imported Schema',
+        name: schemaName,
         tables: [] as any[],
         relationships: [],
         indexes: [],
@@ -221,6 +237,7 @@ const PortfolioManager: React.FC = () => {
     try {
       await savePortfolio(currentSchema.name, payload);
       await loadPortfolios();
+      setPortfolioSaveError(''); // Clear any previous errors
       
       // Broadcast schema save to collaborators if shared
       if (currentSchema.isShared && isConnected) {
@@ -237,8 +254,9 @@ const PortfolioManager: React.FC = () => {
           timestamp: new Date().toISOString()
         });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Portfolio saxlama xətası:', err);
+      setPortfolioSaveError(err.message || 'Portfolio saxlama xətası');
     }
   };
 
@@ -308,6 +326,17 @@ const PortfolioManager: React.FC = () => {
             <span>{currentSchema.relationships.length} relationships</span>
           </div>
         </div>
+        
+        {/* Portfolio Save Error */}
+        {portfolioSaveError && (
+          <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-red-600 dark:text-red-400" />
+              <span className="text-red-800 dark:text-red-200 text-sm font-medium">Error</span>
+            </div>
+            <p className="text-red-700 dark:text-red-300 text-sm mt-1">{portfolioSaveError}</p>
+          </div>
+        )}
       </div>
 
       {/* Portfolio Button */}
@@ -414,11 +443,21 @@ const PortfolioManager: React.FC = () => {
               onKeyPress={(e) => e.key === 'Enter' && handleCreateSchema()}
               className="w-full px-3 py-2 border rounded-lg mb-4"
             />
+            {createSchemaError && (
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg mb-4">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-red-600 dark:text-red-400" />
+                  <span className="text-red-800 dark:text-red-200 text-sm font-medium">Error</span>
+                </div>
+                <p className="text-red-700 dark:text-red-300 text-sm mt-1">{createSchemaError}</p>
+              </div>
+            )}
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowCreateModal(false);
                   setNewSchemaName('');
+                  setCreateSchemaError(''); // Clear error on cancel
                 }}
                 className="px-4 py-2 text-gray-600 hover:text-gray-800"
               >
